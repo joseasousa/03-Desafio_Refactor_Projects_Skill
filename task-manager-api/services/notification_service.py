@@ -1,18 +1,23 @@
 import smtplib
 from datetime import datetime
+import os
 
 class NotificationService:
-    def __init__(self):
+    def __init__(self, smtp_client=smtplib.SMTP):
         self.notifications = []
-        self.email_host = 'smtp.gmail.com'
-        self.email_port = 587
-        self.email_user = 'taskmanager@gmail.com'
-        self.email_password = 'senha123'
+        self.smtp_client = smtp_client
+        self.email_host = os.environ.get('EMAIL_HOST')
+        self.email_port = int(os.environ.get('EMAIL_PORT', '587'))
+        self.email_user = os.environ.get('EMAIL_USER')
+        self.email_password = os.environ.get('EMAIL_PASSWORD')
 
     def send_email(self, to, subject, body):
         try:
+            if not self.email_host or not self.email_user or not self.email_password:
+                print("Email não configurado")
+                return False
 
-            server = smtplib.SMTP(self.email_host, self.email_port)
+            server = self.smtp_client(self.email_host, self.email_port)
             server.starttls()
             server.login(self.email_user, self.email_password)
             message = f"Subject: {subject}\n\n{body}"

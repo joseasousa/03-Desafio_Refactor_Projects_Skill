@@ -1,0 +1,4 @@
+interface:
+  display_name: "Refactor Architecture"
+  short_description: "Audit and refactor projects into MVC"
+  default_prompt: "Use $refactor-arch to audit this project, report MVC/SOLID issues, refactor it into MVC after confirmation, and validate it."

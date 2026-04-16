@@ -1,6 +1,7 @@
 from database import db
 from datetime import datetime
 import hashlib
+from werkzeug.security import check_password_hash, generate_password_hash
 
 class User(db.Model):
     __tablename__ = 'users'
@@ -18,18 +19,21 @@ class User(db.Model):
             'id': self.id,
             'name': self.name,
             'email': self.email,
-            'password': self.password,
             'role': self.role,
             'active': self.active,
             'created_at': str(self.created_at)
         }
 
     def set_password(self, pwd):
-
-        self.password = hashlib.md5(pwd.encode()).hexdigest()
+        self.password = generate_password_hash(pwd)
 
     def check_password(self, pwd):
+        if self.password and self.password.startswith(('scrypt:', 'pbkdf2:')):
+            return check_password_hash(self.password, pwd)
         return self.password == hashlib.md5(pwd.encode()).hexdigest()
+
+    def uses_legacy_password_hash(self):
+        return bool(self.password and not self.password.startswith(('scrypt:', 'pbkdf2:')))
 
     def is_admin(self):
         if self.role == 'admin':

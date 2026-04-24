@@ -23,6 +23,9 @@ Files: 6 analyzed | ~794 lines of code
 
 CRITICAL: 6 | HIGH: 4 | MEDIUM: 4 | LOW: 2
 
+Catalog scan: 12 anti-patterns considered from `references/anti-pattern-catalog.md`.
+Deprecated API scan: completed; no deprecated/obsolete API finding was applicable in this project.
+
 ## Findings
 
 ### [CRITICAL] Arbitrary SQL execution endpoint
@@ -139,4 +142,63 @@ Recommendation: Extract named constants or a reporting service policy function w
 
 ================================
 Total: 16 findings
+================================
+
+Phase 2 complete. Proceed with refactoring (Phase 3)? [y/n]
+
+================================
+PHASE 3: REFACTORING COMPLETE
+================================
+
+## New Project Structure
+
+- `app.py`: Flask composition root with config, CORS, teardown, and route registration.
+- `routes/`: HTTP route/view registration, index, and guarded admin route adapters.
+- `controllers/`: request orchestration and response/status selection by domain.
+- `services/`: product, user/auth, and order workflows with reusable validation.
+- `models/`: product, user, order, and report persistence/domain data operations.
+- `database.py`: SQLite connection lifecycle, schema creation, seed data, and reset operation.
+- `product_model.py`, `user_model.py`, `order_model.py`, `report_model.py`: documented compatibility shims only.
+
+## Resolved Findings
+
+- [CRITICAL] Arbitrary SQL execution endpoint -> `/admin/query` now returns 403 and does not execute request SQL.
+- [CRITICAL] Unauthenticated destructive database reset -> admin reset is disabled by default and requires `ADMIN_TOKEN` when enabled.
+- [CRITICAL] Hardcoded secret/debug -> config now reads environment with safe generated development fallback and debug disabled by default.
+- [CRITICAL] Sensitive health response -> `/health` returns only status and database connectivity.
+- [CRITICAL] Unsafe SQL/password exposure -> model package uses parameterized queries and user serializers omit password fields.
+- [HIGH/MEDIUM] Flat god modules, fat controllers, transaction/N+1 issues -> logic split into MVC packages with rollback and batched order item loading.
+
+## Validation
+
+✓ `PYTHONPYCACHEPREFIX=/tmp/code-smells-pycache python3 -m py_compile app.py database.py product_model.py user_model.py order_model.py report_model.py models/*.py controllers/*.py services/*.py routes/*.py`
+✓ `/tmp/code-smells-venv/bin/pip install -r requirements.txt`
+✓ Flask test-client smoke tests: `/`, `/health`, `/produtos`, `/usuarios`, `/pedidos`, `/relatorios/vendas` -> 200
+✓ Focused structure scan confirmed `models/`, `controllers/`, `routes/`, and `services/` own primary logic.
+
+## Technology-Agnostic Validation Evidence
+
+- Manifest commands checked: `requirements.txt`; no automated test/lint config present.
+- Automated tests: not available.
+- Build/typecheck/lint/syntax: Python compilation passed.
+- Boot/startup: Flask app imported through test client without startup errors.
+- Public interface smoke tests: HTTP endpoints listed above.
+
+## Remaining Risks
+
+- Admin reset can still be enabled for maintenance with environment configuration; production use requires a real authorization policy.
+- No formal unit/integration test suite exists.
+
+## Exit Checklist
+
+| Requirement | Status | Evidence |
+| ----------- | -----: | -------- |
+| Anti-pattern catalog consulted | PASS | `references/anti-pattern-catalog.md`, 12 entries considered |
+| At least 8 anti-patterns considered | PASS | 12 considered |
+| Deprecated/obsolete APIs checked | PASS | completed; none found |
+| MVC playbook applied | PASS | flat models/controllers/routes/services, config, validation, SQL, error handling considered |
+| MVC structure validated | PASS | `models/`, `controllers/`, `routes/`, `services/` inspected |
+| Language-agnostic validation performed | PASS | manifest, syntax, boot/import, and HTTP smoke tests |
+| README/report matches completion state | PASS | README updated to report validated Phase 3 |
+
 ================================

@@ -27,6 +27,7 @@ Stack: Python, Flask, SQLite.
 | MEDIUM | Fluxo de pedido não tem rollback explícito | Erros no meio da criação podem deixar transações inconsistentes. |
 | MEDIUM | Listagens de pedidos usam padrão N+1 | O número de queries cresce conforme pedidos e itens, degradando performance. |
 | LOW | Constantes de domínio ficam espalhadas em handlers | Categorias e limites ficam difíceis de reaproveitar e testar. |
+| LOW | Limiares de desconto ficam como números mágicos | Regras de relatório aparecem como literais sem nome de domínio, reduzindo legibilidade e testabilidade. |
 
 ### `ecommerce-api-legacy`
 
@@ -44,6 +45,7 @@ Stack: Node.js, Express, SQLite.
 | MEDIUM | Relatório financeiro usa N+1 com callbacks aninhados | Performance degrada com o crescimento de cursos e matrículas. |
 | MEDIUM | Validação do checkout é incompleta e presa à rota | Dados inválidos atravessam a fronteira pública e entram no fluxo de negócio. |
 | LOW | Campos abreviados reduzem legibilidade | Variáveis como `u`, `e`, `p`, `cid` e `cc` tornam o mapeamento mais sujeito a erro. |
+| LOW | Nomes de módulos genéricos ocultam responsabilidade | `utils.js` mistura config, cache, log e criptografia, dificultando descoberta de ownership. |
 
 ### `task-manager-api`
 
@@ -61,23 +63,24 @@ Este projeto já possui separação inicial em `models/`, `routes/`, `services/`
 | MEDIUM | Validações de status, prioridade, data e email estão duplicadas | Regras aparecem em handlers e modelos, dificultando evolução consistente. |
 | MEDIUM | Tratamento genérico de exceções retorna erros opacos | `except` amplo esconde causa real e dificulta testes e operação. |
 | LOW | Imports e constantes sem uso ou sem nome de domínio claro | Imports como `os`, `sys`, `json` e listas inline reduzem legibilidade e sinal arquitetural. |
+| LOW | Helpers genéricos misturam formatação e regra local | Funções utilitárias pouco coesas tornam difícil decidir se a regra pertence ao model, serializer ou validator. |
 
 ## Construção da Skill
 
 ### Estrutura
 
-A skill principal fica em `refactor-arch/SKILL.md` e foi estruturada como um workflow sequencial:
+A skill principal canônica fica em `code-smells-project/.claude/skills/refactor-arch/SKILL.md`, com cópias sincronizadas em `.agents/skills/refactor-arch/` nos três projetos e em `refactor-arch/` na raiz para manutenção. Ela foi estruturada como um workflow sequencial:
 
 1. **Fase 1 — Análise do projeto:** detectar linguagem, framework, runtime, dependências, entrypoints, domínio, tabelas/entidades, arquitetura atual e comandos de validação.
-2. **Fase 2 — Auditoria:** classificar problemas de MVC, SOLID, segurança e manutenção com arquivo e linha exatos.
-3. **Gate de confirmação:** pausar antes de qualquer alteração com `Phase 2 complete. Proceed with refactoring (Phase 3)? [y/n]`.
-4. **Fase 3 — Refatoração:** reorganizar responsabilidades para MVC, preservando comportamento público.
-5. **Validação:** rodar testes, boot, checks ou smoke tests disponíveis e fazer uma varredura focada nos achados originais.
+2. **Fase 2 — Auditoria:** consultar o catálogo, classificar problemas de MVC, SOLID, segurança e manutenção com arquivo e linha exatos, salvar o relatório e pausar com `Phase 2 complete. Proceed with refactoring (Phase 3)? [y/n]`.
+3. **Fase 3 — Refatoração e validação:** reorganizar responsabilidades para MVC, preservar comportamento público e validar por testes/build/boot/interfaces públicas conforme a tecnologia detectada.
 
 ### Arquivos de referência
 
 - `refactor-arch/references/severity-rubric.md`: define CRITICAL, HIGH, MEDIUM e LOW com regras de classificação.
 - `refactor-arch/references/audit-report-template.md`: padroniza a saída das fases, o resumo de findings e a matriz de aceitação.
+- `refactor-arch/references/project-analysis-heuristics.md`: orienta detecção de linguagem, framework, banco, domínio, entrypoints e comandos de validação.
+- `refactor-arch/references/mvc-architecture-guidelines.md`: define responsabilidades alvo de Models, Views/Routes, Controllers e camadas auxiliares.
 - `refactor-arch/references/mvc-refactor-playbook.md`: orienta mapeamento MVC por stack, estratégia incremental e validação.
 
 ### Anti-patterns incluídos
@@ -100,7 +103,7 @@ O catálogo cobre os problemas que apareceram nos três projetos e que tendem a 
 
 ### Como a skill permanece agnóstica de tecnologia
 
-A skill não assume um framework específico. Ela começa inspecionando manifests, entrypoints, dependências, rotas, modelos, arquivos de banco, comandos de boot e testes. Depois adapta MVC à stack encontrada:
+A skill não assume um framework específico. Ela começa inspecionando manifests, entrypoints, dependências, rotas, modelos, arquivos de banco, comandos de boot e testes. A validação também é agnóstica: a skill procura scripts em `package.json`, `pyproject.toml`, `requirements.txt`, `pom.xml`, `build.gradle`, `Cargo.toml`, `go.mod`, `composer.json` e equivalentes, priorizando testes automatizados, depois build/typecheck/lint/syntax, boot e smoke tests da interface pública. Depois adapta MVC à stack encontrada:
 
 - Em Flask, rotas funcionam como camada de view/HTTP, controllers ou services orquestram casos de uso, e models/repositories concentram persistência e invariantes.
 - Em Express, `routes` declaram endpoints, controllers cuidam da fronteira HTTP, services executam fluxos de negócio e repositories/models isolam SQLite.
@@ -118,9 +121,9 @@ A skill não assume um framework específico. Ela começa inspecionando manifest
 
 | Projeto | Relatório | CRITICAL | HIGH | MEDIUM | LOW | Total | Status |
 |---|---|---:|---:|---:|---:|---:|---|
-| `code-smells-project` | `code-smells-project/reports/audit-project-1.md` | 6 | 4 | 4 | 2 | 16 | Auditoria salva |
-| `ecommerce-api-legacy` | `ecommerce-api-legacy/reports/audit-project-1.md` | 2 | 5 | 4 | 1 | 12 | Auditoria salva |
-| `task-manager-api` | `task-manager-api/reports/audit-project-1.md` | 3 | 4 | 4 | 2 | 13 | Auditoria salva |
+| `code-smells-project` | `code-smells-project/reports/audit-project-1.md` | 6 | 4 | 4 | 2 | 16 | Auditoria e Fase 3 validadas |
+| `ecommerce-api-legacy` | `ecommerce-api-legacy/reports/audit-project-2.md` | 2 | 5 | 4 | 1 | 12 | Auditoria e Fase 3 validadas |
+| `task-manager-api` | `task-manager-api/reports/audit-project-3.md` | 3 | 4 | 4 | 2 | 13 | Auditoria e Fase 3 validadas |
 
 ### Comparação antes/depois da estrutura
 
@@ -139,18 +142,19 @@ Depois observado no repositório:
 
 ```text
 app.py
-controllers.py
 database.py
-models.py
+controllers/
+models/
 product_model.py
 user_model.py
 order_model.py
 report_model.py
-services.py
+routes/
+services/
 reports/audit-project-1.md
 ```
 
-Status: houve extração parcial por domínio, mas ainda não há relatório de Fase 3 salvo para confirmar a validação completa após refatoração.
+Status: refatoração MVC validada. Os arquivos `product_model.py`, `user_model.py`, `order_model.py` e `report_model.py` são shims de compatibilidade; a lógica principal está em `models/`, `controllers/`, `routes/` e `services/`.
 
 #### `ecommerce-api-legacy`
 
@@ -174,11 +178,11 @@ src/middleware/
 src/models/
 src/services/
 src/validators/
-reports/audit-project-1.md
+reports/audit-project-2.md
 reports/refactor-project-1.md
 ```
 
-Status: refatoração MVC registrada em relatório. O `AppManager` e `utils.js` foram removidos da arquitetura runtime e as responsabilidades foram separadas em controllers, services, repositories/models, middleware, validators e composition root.
+Status: refatoração MVC registrada em `reports/audit-project-2.md`. O `AppManager` e `utils.js` foram removidos da arquitetura runtime e as responsabilidades foram separadas em controllers, services, repositories/models, middleware, validators e composition root.
 
 #### `task-manager-api`
 
@@ -208,10 +212,10 @@ services/
 utils/
 validators/
 seed.py
-reports/audit-project-1.md
+reports/audit-project-3.md
 ```
 
-Status: a auditoria foi salva e o workspace já apresenta extrações para controllers, serializers, validators, config e services. Ainda não há relatório de Fase 3 separado documentando smoke tests completos após a refatoração.
+Status: refatoração MVC validada. O workspace apresenta controllers, serializers, validators, config e services, com smoke tests registrados em `reports/audit-project-3.md`.
 
 ### Checklist de validação
 
@@ -224,8 +228,8 @@ Status: a auditoria foi salva e o workspace já apresenta extrações para contr
 | Domínio descrito corretamente | OK | E-commerce com produtos, usuários, pedidos, itens e relatório de vendas. |
 | Relatório segue template | OK | Arquivo contém Fase 1, relatório de auditoria, resumo, findings e gate de confirmação. |
 | Mínimo de 5 findings | OK | 16 findings. |
-| Refatoração validada após Fase 3 | Pendente | Não há relatório de Fase 3 salvo. |
-| Aplicação rodando após refatoração | Pendente | Não há log/screenshot salvo no repositório. |
+| Refatoração validada após Fase 3 | OK | `reports/audit-project-1.md` contém seção `PHASE 3: REFACTORING COMPLETE`. |
+| Aplicação rodando após refatoração | OK | Smoke tests via Flask test client: `/`, `/health`, `/produtos`, `/usuarios`, `/pedidos`, `/relatorios/vendas` -> 200. |
 
 #### `ecommerce-api-legacy`
 
@@ -234,9 +238,9 @@ Status: a auditoria foi salva e o workspace já apresenta extrações para contr
 | Linguagem detectada corretamente | OK | Relatório detectou JavaScript em Node.js. |
 | Framework detectado corretamente | OK | Relatório detectou Express 4.18.x e sqlite3 5.1.x. |
 | Domínio descrito corretamente | OK | LMS/e-commerce com checkout, matrículas, pagamentos e relatório financeiro. |
-| Relatório segue template | OK | Arquivo contém Fase 1, relatório de auditoria, resumo, findings e gate de confirmação. |
+| Relatório segue template | OK | `reports/audit-project-2.md` contém Fase 1, relatório de auditoria, resumo, findings, gate e Fase 3. |
 | Mínimo de 5 findings | OK | 12 findings. |
-| Refatoração validada após Fase 3 | OK | `reports/refactor-project-1.md` registra validação. |
+| Refatoração validada após Fase 3 | OK | `reports/audit-project-2.md` registra validação. |
 | Aplicação rodando após refatoração | OK | Smoke tests HTTP documentados no relatório de Fase 3. |
 
 Logs registrados no relatório:
@@ -257,10 +261,10 @@ Observação: `npm install` reportou vulnerabilidades herdadas da árvore de dep
 | Linguagem detectada corretamente | OK | Relatório detectou Python 3.14.4 localmente. |
 | Framework detectado corretamente | OK | Relatório detectou Flask 3.0.0, Flask-SQLAlchemy 3.1.1 e Flask-CORS 4.0.0. |
 | Domínio descrito corretamente | OK | Task Manager API com usuários, tasks, categorias, relatórios, login e notificações. |
-| Relatório segue template | OK | Arquivo contém Fase 1, relatório de auditoria, resumo e findings. |
+| Relatório segue template | OK | `reports/audit-project-3.md` contém Fase 1, relatório de auditoria, resumo, findings, gate e Fase 3. |
 | Mínimo de 5 findings | OK | 13 findings. |
-| Refatoração validada após Fase 3 | Pendente | Não há relatório de Fase 3 salvo. |
-| Aplicação rodando após refatoração | Pendente | Não há log/screenshot salvo no repositório. |
+| Refatoração validada após Fase 3 | OK | `reports/audit-project-3.md` contém seção `PHASE 3: REFACTORING COMPLETE`. |
+| Aplicação rodando após refatoração | OK | Smoke tests via Flask test client: `/`, `/health`, `/tasks`, `/users`, `/reports/summary` -> 200. |
 
 ### Screenshots e logs de execução
 
@@ -286,7 +290,7 @@ Focused source scan -> no runtime occurrences of admin_master, senha_super, pk_l
 
 #### `code-smells-project` e `task-manager-api`
 
-Os relatórios de auditoria foram salvos, mas não há screenshot nem log de smoke test pós-refatoração salvo para esses dois projetos. A validação final deve ser executada pelos comandos da seção **Como Executar** antes de declarar a refatoração concluída.
+Os relatórios `code-smells-project/reports/audit-project-1.md` e `task-manager-api/reports/audit-project-3.md` registram validação por compilação Python, instalação em virtualenv temporário e smoke tests via Flask test client.
 
 ### Comportamento em stacks diferentes
 
@@ -364,7 +368,7 @@ Em outro terminal:
 curl http://localhost:3000/api/admin/financial-report
 curl -X POST http://localhost:3000/api/checkout \
   -H "Content-Type: application/json" \
-  -d '{"usr":"Ana","eml":"ana@example.com","pwd":"senha123","c_id":1,"cc":"4111111111111111"}'
+  -d '{"usr":"Ana","eml":"ana@example.com","pwd":"senha123","c_id":1,"card":"4111111111111111"}'
 ```
 
 ### Validar `task-manager-api`
